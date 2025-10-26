@@ -35,11 +35,12 @@ class Tokenizer:
     
     # decoder: id -> token -> text
     def decode(self, token_ids: List[int]) -> str:
-        text = ""
+        bytes_data = b""
         for token_id in token_ids:
-            if token_id in self.reverse_vocab:
-                token = self.reverse_vocab[token_id]
-                text += token.decode("utf-8", errors="replace")
+            if token_id in self.vocab:
+                token = self.vocab[token_id]
+                bytes_data += token.decode("utf-8", errors="replace")
+        text = bytes_data.decode("utf-8", errors="replace")
         return text
 
     
