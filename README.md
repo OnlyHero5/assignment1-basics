@@ -1,6 +1,3 @@
-当然可以 👍
-下面是一份**美观、结构清晰的 README.md Markdown 源代码模板**，专为你的 **CS336 作业 1（assignment1-basics）** 设计。
-你可以直接复制到项目根目录下命名为 `README.md`，推送到 GitHub 即可自动渲染。
 
 ---
 
