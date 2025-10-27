@@ -13,9 +13,14 @@
 
 
 from typing import List, Tuple, Dict, Iterable, Iterator
-import re
+import regex as re
 
 class Tokenizer:
+
+
+    GPT2_SPLIT_PATTERN = re.compile(
+        r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+    )
 
     def __init__(
             self,
@@ -156,13 +161,17 @@ class Tokenizer:
                         token_id = self.reverse_vocab[token_bytes]
                         yield token_id
                     else:
-                        # 对普通文本进行BPE编码
-                        tokens = [bytes([b]) for b in segment.encode("utf-8")]
-                        tokens = self._apply_bpe_merges(tokens)
+                        # 使用GPT-2的分词正则表达式进行初步拆分
+                        for match in self.GPT2_SPLIT_PATTERN.finditer(segment):
+                            text_chunk = match.group()
+                            # 对子段进行byte级别拆分
+                            tokens = [bytes([b]) for b in text_chunk.encode("utf-8")]
+                            # 应用BPE合并
+                            tokens = self._apply_bpe_merges(tokens)
 
-                        for token in tokens:
-                            token_id = self.reverse_vocab[token]
-                            yield token_id
+                            for token in tokens:
+                                token_id = self.reverse_vocab[token]
+                                yield token_id
     
     # 实现最终的encode
     def encode(self, text: str) -> list[int]:
