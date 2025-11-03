@@ -13,6 +13,7 @@ from cs336_basics import nn_utils as nn_utils
 from cs336_basics import data as data
 from  cs336_basics import tokenizer as tokenizer
 from cs336_basics import BPE
+from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE
 def run_linear(
     d_in: int,
     d_out: int,
@@ -31,8 +32,10 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-
-    raise NotImplementedError
+    linear = Linear(d_in, d_out, bias=False)
+    with torch.no_grad():
+        linear.weight.data = weights
+    return linear(in_features)
 
 
 def run_embedding(
@@ -53,8 +56,12 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
+    embedding = Embedding(vocab_size, d_model)
+    with torch.no_grad():
+        embedding.weight.data = weights
+    
+    return embedding(token_ids)
 
-    raise NotImplementedError
 
 
 def run_swiglu(
@@ -203,7 +210,9 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rope = RoPE(d_k, max_seq_len, theta)
+    output = rope(in_query_or_key, token_positions)
+    return output
 
 
 def run_transformer_block(
@@ -381,7 +390,11 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rmsnorm = RMSNorm(d_model, eps)
+    with torch.no_grad():
+        rmsnorm.weight.data = weights
+
+    return rmsnorm(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -395,7 +408,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    return silu(in_features)
 
 
 def run_get_batch(
