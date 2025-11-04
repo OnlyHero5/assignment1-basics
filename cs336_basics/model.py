@@ -804,3 +804,114 @@ class TransformerBlock(nn.Module):
         return output
 
 
+
+class TransformrLM(nn.Module):
+    """
+    完整的 Transformer 语言模型
+    
+    架构:
+        token_ids 
+        → Embedding 
+        → [TransformerBlock] × num_layers 
+        → RMSNorm 
+        → Linear (LM Head) 
+        → logits
+    
+    参数:
+        vocab_size: 词表大小
+        context_length: 最大上下文长度
+        d_model: 模型维度
+        num_layers: Transformer 层数
+        num_heads: 注意力头数
+        d_ff: FFN 中间层维度
+        rope_theta: RoPE 频率基数
+        eps: RMSNorm 的 epsilon
+    
+    形状:
+        输入: (batch, seq_len) - token IDs
+        输出: (batch, seq_len, vocab_size) - 下一个 token 的 logits
+    
+    示例:
+        >>> model = TransformerLM(
+        ...     vocab_size=50000,
+        ...     context_length=2048,
+        ...     d_model=512,
+        ...     num_layers=6,
+        ...     num_heads=8,
+        ...     d_ff=2048
+        ... )
+        >>> token_ids = torch.randint(0, 50000, (4, 100))  # (batch=4, seq_len=100)
+        >>> logits = model(token_ids)
+        >>> print(logits.shape)  # (4, 100, 50000)
+    """
+
+    def __init__(
+            self, 
+            vocab_size: int,
+            context_length: int,
+            d_model: int,
+            num_layers: int,
+            num_heads: int,
+            d_ff: int,
+            rope_theta: float = 10000.0,
+            eps: float = 1e-5):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.context_length = context_length
+        self.d_model = d_model
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.d_ff = d_ff
+        self.rope_theta = rope_theta
+        self.eps = eps
+
+        # 词嵌入层
+        self.embedding = Embedding(vocab_size, d_model)
+        # transformer层
+        self.layers = nn.ModuleList([
+            TransformerBlock(
+                d_model=d_model,
+                num_heads=num_heads,
+                d_ff=d_ff,
+                use_rope=True,
+                max_seq_len=context_length,
+                theta=rope_theta
+            ) for _ in range(num_layers)
+        ])
+        # 归一化层
+        self.norm = RMSNorm(d_model, eps=eps)
+        # 输出层
+        self.output = Linear(d_model, vocab_size, bias=False)
+
+    def forward(self, tokens_id: Tensor) -> Tensor:
+        """
+        前向传播
+
+        架构:
+            token_ids
+            → Embedding
+            → [TransformerBlock] × num_layers
+            → RMSNorm
+            → Linear (LM Head)
+            → logits
+        """
+        # 1. 词嵌入
+        x = self.embedding(tokens_id)
+
+
+        # 制作token_positions
+        batch_size, seq_len = tokens_id.shape
+        token_positions = torch.arange(seq_len, device=tokens_id.device)  # (seq_len,)
+        token_positions = token_positions.unsqueeze(0).expand(batch_size, -1)  # (batch, seq_len)
+
+        # 2. transformer层
+        for layer in self.layers:
+            x = layer(x, token_positions)
+
+        # 3. 归一化
+        x = self.norm(x)
+
+        # 4. 输出层
+        logits = self.output(x)  # (batch, seq_len, vocab_size)
+
+        return logits

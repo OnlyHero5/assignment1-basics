@@ -14,7 +14,7 @@ from cs336_basics import data as data
 from  cs336_basics import tokenizer as tokenizer
 from cs336_basics import BPE
 
-from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU, TransformerBlock
+from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU, TransformerBlock, TransformrLM
 
 def run_linear(
     d_in: int,
@@ -405,7 +405,27 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    transformrLM = TransformrLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
+    with torch.no_grad():
+        transformrLM.embedding.weight.data = weights['token_embeddings.weight']
+        for i in range(num_layers):
+            # 注意力权重
+            transformrLM.layers[i].attn.q_proj.weight.data = weights[f'layers.{i}.attn.q_proj.weight']
+            transformrLM.layers[i].attn.k_proj.weight.data = weights[f'layers.{i}.attn.k_proj.weight']
+            transformrLM.layers[i].attn.v_proj.weight.data = weights[f'layers.{i}.attn.v_proj.weight']
+            transformrLM.layers[i].attn.out_proj.weight.data = weights[f'layers.{i}.attn.output_proj.weight']
+            # 归一化层权重
+            transformrLM.layers[i].attn_norm.weight.data = weights[f'layers.{i}.ln1.weight']
+            # 前馈层权重
+            transformrLM.layers[i].ffn.w1.weight.data = weights[f'layers.{i}.ffn.w1.weight']
+            transformrLM.layers[i].ffn.w2.weight.data = weights[f'layers.{i}.ffn.w2.weight']
+            transformrLM.layers[i].ffn.w3.weight.data = weights[f'layers.{i}.ffn.w3.weight']
+            transformrLM.layers[i].ffn_norm.weight.data = weights[f'layers.{i}.ln2.weight']
+
+        transformrLM.norm.weight.data = weights['ln_final.weight']
+        transformrLM.output.weight.data = weights['lm_head.weight']
+    
+    return transformrLM(in_indices)
 
 
 def run_rmsnorm(
