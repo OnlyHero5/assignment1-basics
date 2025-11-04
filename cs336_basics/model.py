@@ -702,3 +702,105 @@ class MultiHeadAttention(nn.Module):
 
 
 
+# ===================================
+# 实现transformerblock块，整合上面全部功能
+# ===================================
+class TransformerBlock(nn.Module):
+    """
+    Transformer 块
+    
+    一个标准的 Transformer 块包含：
+    1. Pre-Norm + Multi-Head Attention + 残差
+    2. Pre-Norm + Feed-Forward Network + 残差
+    
+    架构 (Pre-Norm):
+        x = x + Attention(RMSNorm(x))
+        x = x + FFN(RMSNorm(x))
+    
+    参数:
+        d_model: 模型维度
+        num_heads: 注意力头数量
+        d_ff: FFN 中间层维度
+        use_rope: 是否使用 RoPE
+        max_seq_len: 最大序列长度
+        theta: RoPE 频率基数
+    
+    形状:
+        输入: (batch, seq_len, d_model)
+        输出: (batch, seq_len, d_model)
+    
+    示例:
+        >>> block = TransformerBlock(d_model=512, num_heads=8, d_ff=2048)
+        >>> x = torch.randn(2, 10, 512)
+        >>> output = block(x)
+        >>> print(output.shape)  # (2, 10, 512)
+    """
+    def __init__(self, 
+                 d_model: int,
+                 num_heads: int,
+                 d_ff: int,
+                 use_rope: bool = False,
+                 max_seq_len: int = 2048,
+                 theta: float = 10000.0
+                 ):
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_ff = d_ff
+        self.use_rope = use_rope
+        self.max_seq_len = max_seq_len
+        self.theta = theta
+
+        # 注意力归一化层
+        self.attn_norm = RMSNorm(d_model)
+        # 多头注意力
+        self.attn = MultiHeadAttention(
+            d_model=d_model,
+            num_heads=num_heads,
+            use_rope=use_rope,
+            max_seq_len=max_seq_len,
+            theta=theta
+        )
+        # 前馈归一化层
+        self.ffn_norm = RMSNorm(d_model)
+        # 前馈网络
+        self.ffn = SwiGLU(d_model=d_model, d_ff=d_ff)
+    
+    def forward(self,
+                 x: Tensor, 
+                 token_positions: Optional[Tensor] = None
+                ) -> Tensor:
+        """
+    前向传播
+    
+    架构:
+        x ──→ RMSNorm ──→ MultiHeadAttention ──→ + ──→ x
+        └──────────────────────────────────────────┘
+        
+        x ──→ RMSNorm ──→ SwiGLU ──→ + ──→ output
+        └────────────────────────────┘
+        """
+
+        #==================
+        # 注意力机制
+        #==================
+        # 1. pre_norm
+        normed = self.attn_norm(x)
+        # 2. 多头注意力
+        attn_output = self.attn(normed, token_positions)
+        # 3. 残差
+        x = x + attn_output
+
+        # ===================
+        # 前馈网络
+        # ===================
+        # 1. pre_norm
+        ffn_normed = self.ffn_norm(x)
+        # 2. 前馈网络
+        ffn_output = self.ffn(ffn_normed)
+        # 3. 残差
+        output = x + ffn_output
+
+        return output
+
+
