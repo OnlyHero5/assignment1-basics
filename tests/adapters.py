@@ -13,11 +13,9 @@ from cs336_basics import nn_utils as nn_utils
 from cs336_basics import data as data
 from  cs336_basics import tokenizer as tokenizer
 from cs336_basics import BPE
-<<<<<<< HEAD
+
 from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU
-=======
-from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention
->>>>>>> f62ad35b825384fc50d967c856b92bb75d556a86
+
 def run_linear(
     d_in: int,
     d_out: int,
