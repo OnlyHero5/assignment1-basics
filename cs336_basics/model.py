@@ -119,7 +119,7 @@ def silu(x: Tensor) -> Tensor:
 
 
 # ============================================================
-# 第五部分：RoPE 位置编码 (Day 2 上午)
+# 第五部分：RoPE 位置编码
 # ============================================================
 class RoPE(nn.Module):
     """
@@ -312,6 +312,230 @@ class RoPE(nn.Module):
         sin = sin.unsqueeze(-2)
 
         return cos, sin
-        
-
     
+
+# ============================================================
+# 第六部分：缩放点积注意力
+# ============================================================
+def scaled_dot_product_attention(
+        Q: Tensor,
+        K: Tensor,
+        V: Tensor,
+        mask: Optional[Tensor] = None,
+) -> Tensor:
+    """
+    缩放点积注意力
+    
+    公式:
+        Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) V
+    
+    步骤:
+        1. 计算注意力分数: scores = QK^T / sqrt(d_k)
+        2. 应用掩码 (可选)
+        3. Softmax 归一化
+        4. 加权求和: output = attention_weights @ V
+    
+    参数:
+        Q: Query 张量 (..., seq_len_q, d_k)
+        K: Key 张量 (..., seq_len_k, d_k)
+        V: Value 张量 (..., seq_len_k, d_v)
+        mask: 注意力掩码 (..., seq_len_q, seq_len_k)
+              mask=True 的位置会被 mask 掉 (设为 -inf)
+    
+    返回:
+        注意力输出 (..., seq_len_q, d_v)
+    
+    示例:
+        >>> Q = torch.randn(2, 4, 10, 64)  # (batch, heads, seq_q, d_k)
+        >>> K = torch.randn(2, 4, 10, 64)  # (batch, heads, seq_k, d_k)
+        >>> V = torch.randn(2, 4, 10, 64)  # (batch, heads, seq_k, d_v)
+        >>> output = scaled_dot_product_attention(Q, K, V)
+        >>> print(output.shape)  # (2, 4, 10, 64)
+    """
+
+    # 获取d_k, Q,K向量的维度
+    d_k = Q.size(-1)
+    # 计算注意力分数 scores = QK^T / sqrt(d_k)
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    # 应用掩码
+    if mask is not None:
+        scores = scores.masked_fill(mask != True, float("-inf"))
+    # Softmax 归一化
+    attention_weights = torch.softmax(scores, dim=-1)
+    # 加权求和
+    output = torch.matmul(attention_weights, V)
+
+    return output
+
+
+        
+# ============================================================
+# 第七部分：多头自注意力
+# ============================================================
+class MultiHeadAttention(nn.Module):
+    """
+    多头自注意力层
+    
+    多头注意力允许模型同时关注不同位置的不同表示子空间。
+    
+    步骤:
+        1. 线性投影: Q, K, V = xW_q, xW_k, xW_v
+        2. 分头: 将 d_model 拆分为 num_heads 个 d_head
+        3. 并行计算多个注意力头
+        4. 合并多头输出
+        5. 输出投影: output = concat(heads)W_o
+    
+    参数:
+        d_model: 模型维度
+        num_heads: 注意力头数量
+        use_rope: 是否使用 RoPE
+        max_seq_len: 最大序列长度 (仅当 use_rope=True 时需要)
+        theta: RoPE 频率基数
+    
+    形状:
+        输入: (batch, seq_len, d_model)
+        输出: (batch, seq_len, d_model)
+    """
+    def __init__(self, 
+                 d_model: int,
+                 num_heads: int,
+                 use_rope: bool = False,
+                 max_seq_len: int = 2048,
+                 theta: float = 10000.0):
+        super().__init__()
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_head = d_model // num_heads
+        self.use_rope = use_rope
+        
+        # 高效创建QKV投影层， 通过大线性层，num_heads: 注意力头数量通过reshape切割成各专家
+        self.q_proj = Linear(d_model, d_model, bias=False)
+        self.k_proj = Linear(d_model, d_model, bias=False)
+        self.v_proj = Linear(d_model, d_model, bias=False)
+
+        # 输出投影层
+        self.out_proj = Linear(d_model, d_model, bias=False)
+
+        # RoPE 位置编码
+        if self.use_rope:
+            self.rope = RoPE(d_head=self.d_head, max_seq_len=max_seq_len, theta=theta)
+        else:
+            self.rope = None
+        
+    # 前向传播
+    def forward(self, x: Tensor, token_positions: Optional[Tensor] = None) -> Tensor:
+        """
+        前向传播
+        
+        参数:
+            x: 输入 (batch, seq_len, d_model)
+            token_positions: 位置索引 (batch, seq_len)，仅当 use_rope=True 时需要
+        
+        返回:
+            输出 (batch, seq_len, d_model)
+        """
+        batch_size, seq_len, d_model = x.shape
+        # 线性投影
+        Q = self.q_proj(x)
+        K = self.k_proj(x)
+        V = self.v_proj(x)
+
+        # 分头
+        Q = Q.view(batch_size, seq_len, self.num_heads, self.d_head)
+        K = K.view(batch_size, seq_len, self.num_heads, self.d_head)
+        V = V.view(batch_size, seq_len, self.num_heads, self.d_head)
+
+        # 应用 RoPE 位置编码
+        if self.use_rope:
+            Q = self.rope(Q, token_positions)
+            K = self.rope(K, token_positions)
+        
+        # 转置
+        Q = Q.transpose(1, 2)  # (batch, num_heads, seq_len, d_head)
+        K = K.transpose(1, 2)  # (batch, num_heads, seq_len, d_head)
+        V = V.transpose(1, 2)  # (batch, num_heads, seq_len, d_head)
+
+        # 创建因果编码
+        causal_mask = torch.tril(
+            torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device),
+            diagonal=0
+        )
+
+        # 计算注意力
+        attn_output = scaled_dot_product_attention(Q, K, V, mask=causal_mask)
+
+        # 转置还原
+        attn_output = attn_output.transpose(1, 2)  # (batch, seq_len, num_heads, d_head)
+ 
+        # 合并多头
+        attn_output = attn_output.reshape(batch_size, seq_len, self.d_model)
+        
+        # 输出投影  # (batch, seq_len, d_model)
+        output = self.out_proj(attn_output)
+
+        return output
+
+
+
+# ==============================
+# 第八部分：前馈网络
+# ==============================
+class SwiGLU(nn.Module):
+    """
+    SwiGLU 前馈网络
+    
+    SwiGLU 是一种改进的前馈网络，使用门控机制和 SiLU 激活函数。
+    相比传统的 FFN，SwiGLU 有更好的表达能力。
+    
+    公式:
+        SwiGLU(x) = (W1·x ⊙ SiLU(W3·x)) · W2
+    
+    参数:
+        d_model: 输入/输出维度
+        d_ff: 中间层维度（通常是 d_model 的 4 倍）
+    
+    形状:
+        输入: (..., d_model)
+        输出: (..., d_model)
+    
+    参考:
+        GLU Variants Improve Transformer
+        https://arxiv.org/abs/2002.05202
+    
+    示例:
+        >>> swiglu = SwiGLU(d_model=512, d_ff=2048)
+        >>> x = torch.randn(2, 10, 512)
+        >>> output = swiglu(x)
+        >>> print(output.shape)  # (2, 10, 512)
+    """
+    def __init__(self, d_model: int, d_ff: int):
+        super().__init__()
+        self.d_model = d_model
+        self.d_ff = d_ff
+
+        # 上投影矩阵
+        self.w1 = Linear(d_model, d_ff, bias=False)
+        # 下投影矩阵
+        self.w2 = Linear(d_ff, d_model, bias=False)
+        # 门控上投影矩阵
+        self.w3 = Linear(d_model, d_ff, bias=False)
+    
+    def forward(self, x: Tensor) -> Tensor:
+
+        # 上投影
+        x1 = self.w1(x)  # (..., d_ff)
+
+        # 门控
+        x3 = self.w3(x)  # (..., d_ff)
+        gate = x3 * silu(x1)  # (..., d_ff)
+
+        # 下投影
+        output = self.w2(gate)  # (..., d_model)
+
+        return output
+
+
+
+        

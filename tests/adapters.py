@@ -13,7 +13,7 @@ from cs336_basics import nn_utils as nn_utils
 from cs336_basics import data as data
 from  cs336_basics import tokenizer as tokenizer
 from cs336_basics import BPE
-from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE
+from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU
 def run_linear(
     d_in: int,
     d_out: int,
@@ -93,7 +93,13 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+
+    swiglu = SwiGLU(d_model, d_ff)
+    with torch.no_grad():
+        swiglu.w1.weight.data = w1_weight
+        swiglu.w2.weight.data = w2_weight
+        swiglu.w3.weight.data = w3_weight
+    return swiglu(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -114,7 +120,8 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(Q, K, V, mask)
+    
 
 
 def run_multihead_self_attention(
@@ -148,7 +155,14 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    multiheadattention = MultiHeadAttention(d_model, num_heads, use_rope=False)
+    with torch.no_grad():
+        multiheadattention.q_proj.weight.data = q_proj_weight
+        multiheadattention.k_proj.weight.data = k_proj_weight
+        multiheadattention.v_proj.weight.data = v_proj_weight
+        multiheadattention.out_proj.weight.data = o_proj_weight
+
+    return multiheadattention(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -188,7 +202,13 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    multiheadattention = MultiHeadAttention(d_model, num_heads, use_rope=True, max_seq_len=max_seq_len, theta=theta)
+    with torch.no_grad():
+        multiheadattention.q_proj.weight.data = q_proj_weight
+        multiheadattention.k_proj.weight.data = k_proj_weight
+        multiheadattention.v_proj.weight.data = v_proj_weight
+        multiheadattention.out_proj.weight.data = o_proj_weight
+    return multiheadattention(in_features, token_positions)
 
 
 def run_rope(
