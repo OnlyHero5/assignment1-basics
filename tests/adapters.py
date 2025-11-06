@@ -14,7 +14,7 @@ from cs336_basics import data as data
 from  cs336_basics import tokenizer as tokenizer
 from cs336_basics import BPE
 
-from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU, TransformerBlock, TransformrLM, AdamW
+from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU, TransformerBlock, TransformrLM, AdamW, get_lr_cosine_schedule
 
 def run_linear(
     d_in: int,
@@ -570,7 +570,9 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return get_lr_cosine_schedule(
+        it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters
+    )
 
 
 def run_save_checkpoint(

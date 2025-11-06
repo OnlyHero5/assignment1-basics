@@ -170,3 +170,32 @@ class AdamW(Optimizer):
 
 
 
+def get_lr_cosine_schedule(
+        it: int,
+        max_learning_rate: float,
+        min_learning_rate: float,
+        warmup_iters: int,
+        cosine_cycle_iters: int
+) -> float:
+    """
+    带预热的余弦学习率调度
+    """
+
+    # =============================
+    # 预热阶段
+    # =============================
+    if warmup_iters > 0 and it < warmup_iters:
+        # 线性增长
+        return max_learning_rate * it / warmup_iters
+    # =============================
+    # 余弦衰退
+    # =============================
+    elif it > cosine_cycle_iters:
+        return min_learning_rate
+    else:
+        denom = cosine_cycle_iters - warmup_iters
+        if denom <= 0:
+            return min_learning_rate
+        progress = (it - warmup_iters) / denom
+        cos_decay = (1 + math.cos(math.pi * progress)) / 2
+        return min_learning_rate + (max_learning_rate - min_learning_rate) * cos_decay
