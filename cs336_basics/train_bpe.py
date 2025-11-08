@@ -25,7 +25,7 @@ import regex
 import pickle
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
-
+import json
 
 class BPE:
 
@@ -260,6 +260,7 @@ class BPE:
             # 执行合并操作
             BPE._perform_merge(token_frequencies, pair_frequencies, best_pair, new_token)
 
+        
         
         return vocab, megres
                 

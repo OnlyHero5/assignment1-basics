@@ -176,3 +176,94 @@ class Tokenizer:
     # 实现最终的encode
     def encode(self, text: str) -> list[int]:
         return list(self.encode_iterable([text]))
+    
+    # 实现类方法从磁盘载入vocab和merges
+    @classmethod
+    def from_file(cls, 
+                  vocab_filepath: str,
+                  merges_filepath: str,
+                  special_tokens: list[str] | None = None) -> 'Tokenizer':
+        
+        import os, json, pickle
+
+
+        def _to_bytes(x):
+            if isinstance(x, (bytes, bytearray)):
+                return bytes(x)
+            if isinstance(x, list) and all(isinstance(item, int) for item in x):
+                return bytes(x)
+            if isinstance(x, str):
+                return x.encode('latin-1', errors="strict")
+            raise ValueError(f"无法将对象还原成 bytes : {type(x)}")
+        
+        def _load_vocab_(path: str) -> dict[int, bytes]:
+            ext = os.path.splitext(path)[1]
+            if ext in (".pkl", ".pickle"):
+                with open(path, "rb") as f:
+                    data = pickle.load(f)
+                if isinstance(data, dict):
+                    out = {}
+                    for k, v in data.items():
+                        kid = int(k)
+                        out[kid] = _to_bytes(v)
+                    return out
+                raise ValueError(f"无法将对象还原成 dict[int, bytes] : {type(data)}")
+            
+            elif ext in (".json", ".jsonl"):
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    return {int(k): _to_bytes(v) for k, v in data.items()}
+                if isinstance(data, list):
+                    out = {}
+                    for item in data:
+                        if (isinstance(item, list) or isinstance(item, tuple)) and len(item) == 2:
+                            k, v = item
+                            kid = int(k)
+                            out[kid] = _to_bytes(v)
+                        else:
+                            raise ValueError(f"无法将对象还原成 dict[int, bytes] : {type(item)}")
+                    return out
+                raise ValueError(f"无法将对象还原成 dict[int, bytes] : {type(data)}")
+            
+            else:
+                raise ValueError(f"不支持的文件格式 : {ext}")
+        
+        def _load_merges(path: str) -> list[tuple[bytes, bytes]]:
+            ext = os.path.splitext(path)[1]
+            if ext in (".pkl", ".pickle"):
+                with open(path, "rb") as f:
+                    data = pickle.load(f)
+                if isinstance(data, list):
+                    merges = []
+                    for pair in data:
+                        if isinstance(pair, (list, tuple)) and len(pair) == 2:
+                            merges.append((_to_bytes(pair[0]), _to_bytes(pair[1])))
+                        else:
+                            raise ValueError(f"无法将对象还原成 list[tuple[bytes, bytes]] : {type(pair)}")
+                    return merges
+                raise ValueError(f"无法将对象还原成 list[tuple[bytes, bytes]] : {type(data)}")
+                
+            elif ext in (".json", ".jsonl"):
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if not isinstance(data, list):
+                    raise ValueError(f"无法将对象还原成 list[tuple[bytes, bytes]] : {type(data)}")
+                merges = []
+                for pair in data:
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2:
+                        merges.append((_to_bytes(pair[0]), _to_bytes(pair[1])))
+                    elif isinstance(pair, dict) and 'a' in pair and 'b' in pair:
+                        merges.append((_to_bytes(pair['a']), _to_bytes(pair['b'])))
+                    else:
+                        raise ValueError(f"无法将对象还原成 list[tuple[bytes, bytes]] : {type(pair)}")
+                return merges
+            
+            else:
+                raise ValueError(f"不支持的文件格式 : {ext}")
+        
+        vocab = _load_vocab_(vocab_filepath)
+        merges = _load_merges(merges_filepath)
+        return cls(vocab, merges, special_tokens)
+
+
