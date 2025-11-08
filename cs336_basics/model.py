@@ -805,7 +805,7 @@ class TransformerBlock(nn.Module):
 
 
 
-class TransformrLM(nn.Module):
+class TransformerLM(nn.Module):
     """
     完整的 Transformer 语言模型
     

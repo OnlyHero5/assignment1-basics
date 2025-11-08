@@ -14,7 +14,7 @@ from cs336_basics import data as data
 from  cs336_basics import tokenizer as tokenizer
 from cs336_basics import BPE
 
-from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU, TransformerBlock, TransformrLM, AdamW, get_lr_cosine_schedule, load_checkpoint, save_checkpoint
+from cs336_basics import Linear, Embedding, RMSNorm, silu, RoPE, scaled_dot_product_attention, MultiHeadAttention, SwiGLU, TransformerBlock, TransformerLM, AdamW, get_lr_cosine_schedule, load_checkpoint, save_checkpoint
 
 def run_linear(
     d_in: int,
@@ -405,7 +405,7 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    transformrLM = TransformrLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
+    transformrLM = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
     with torch.no_grad():
         transformrLM.embedding.weight.data = weights['token_embeddings.weight']
         for i in range(num_layers):
