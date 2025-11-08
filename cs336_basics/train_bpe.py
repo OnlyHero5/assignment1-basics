@@ -25,7 +25,7 @@ import regex
 import pickle
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
-import json
+from pathlib import Path
 
 class BPE:
 
@@ -260,8 +260,16 @@ class BPE:
             # 执行合并操作
             BPE._perform_merge(token_frequencies, pair_frequencies, best_pair, new_token)
 
-        
-        
+        # =========================
+        # 保存BPE结果进入本地磁盘
+        # =========================
+        data_dir = Path("../data")
+        data_dir.mkdir(parents=True, exist_ok=True)
+        with open(data_dir / "vocab.pkl", "wb") as f:
+            pickle.dump(vocab, f)
+        with open(data_dir /"merges.pkl", "wb") as f:
+            pickle.dump(megres, f) 
+
         return vocab, megres
                 
                 
