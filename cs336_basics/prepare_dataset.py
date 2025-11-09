@@ -9,7 +9,7 @@ from pathlib import Path
 
 def _iter_texts(p: Path):
     if p.is_dir():
-        for fp in sorted(p.rglob("*.text")):
+        for fp in sorted(p.rglob("*.txt")):
             with open(fp, "r", encoding="utf-8") as f:
                 yield f.read()
     else:
@@ -51,7 +51,7 @@ def main():
     args = ap.parse_args()
 
     # 加载tokenizer
-    tok = Tokenizer(args.vocab, args.merges, special_tokens=[args.eot])
+    tok = Tokenizer.from_file(args.vocab, args.merges, special_tokens=[args.eot])
 
     os.makedirs(args.outdir, exist_ok=True)
     train_out = os.path.join(args.outdir, "train.npy")
