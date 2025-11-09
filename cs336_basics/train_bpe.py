@@ -171,6 +171,7 @@ class BPE:
             token_freq[new_seq] = seq_freq
 
     # 训练BPE
+    @staticmethod
     def train_bpe(
     input_path: str | os.PathLike,
     vocab_size: int,
