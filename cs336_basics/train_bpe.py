@@ -176,6 +176,7 @@ class BPE:
     input_path: str | os.PathLike,
     vocab_size: int,
     special_tokens: list[str],
+    save_dir: str | os.PathLike = "../data", 
     ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
         
         # ============================================================
@@ -264,11 +265,14 @@ class BPE:
         # =========================
         # 保存BPE结果进入本地磁盘
         # =========================
-        data_dir = Path("../data")
+        data_dir = save_dir
+        base_name = input_path.stem
         data_dir.mkdir(parents=True, exist_ok=True)
-        with open(data_dir / "vocab.pkl", "wb") as f:
+        vocab_path = data_dir / f"{base_name}_vocab.pkl"
+        merges_path = data_dir / f"{base_name}_merges.pkl"
+        with open(vocab_path, "wb") as f:
             pickle.dump(vocab, f)
-        with open(data_dir /"merges.pkl", "wb") as f:
+        with open(megres /"merges.pkl", "wb") as f:
             pickle.dump(megres, f) 
 
         return vocab, megres
