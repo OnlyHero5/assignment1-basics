@@ -265,15 +265,23 @@ class BPE:
         # =========================
         # 保存BPE结果进入本地磁盘
         # =========================
-        data_dir = save_dir
-        base_name = input_path.stem
+        data_dir = Path(save_dir)
+        base_name = Path(input_path).stem
         data_dir.mkdir(parents=True, exist_ok=True)
         vocab_path = data_dir / f"{base_name}_vocab.pkl"
         merges_path = data_dir / f"{base_name}_merges.pkl"
         with open(vocab_path, "wb") as f:
             pickle.dump(vocab, f)
-        with open(megres /"merges.pkl", "wb") as f:
+        with open(merges_path, "wb") as f:
             pickle.dump(megres, f) 
+        
+        print("\n" + "=" * 60)
+        print("✓ BPE 训练完成")
+        print("=" * 60)
+        print(f"  - 最终词汇表大小: {len(vocab)}")
+        print(f"  - 合并操作数: {len(megres)}")
+        print(f"  - 词汇表已保存至: {vocab_path}")
+        print(f"  - 合并记录已保存至: {merges_path}")
 
         return vocab, megres
                 
