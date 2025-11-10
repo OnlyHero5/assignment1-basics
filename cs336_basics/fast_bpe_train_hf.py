@@ -1,7 +1,6 @@
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, decoders
 from tokenizers.processors import TemplateProcessing
 from pathlib import Path
-from __future__ import annotations
 
 
 
