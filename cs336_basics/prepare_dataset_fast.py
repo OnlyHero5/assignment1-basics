@@ -71,7 +71,7 @@ def prepare_dataset_with_hf(
         all_ids = []
         for text in examples["text"]:
             encoding = tokenizer.encode(text + eot_token)
-            all_ids.append(encoding)
+            all_ids.append(encoding.ids)
         return {"input_ids": all_ids}
     
     #============
@@ -224,12 +224,7 @@ def main():
         help="Vocab文件路径",
         default="../data/vocab.json",
     )
-    parser.add_argument(
-        "--merges",
-        type=str,
-        help="Merges文件路径",
-        default="../data/merges.json",
-    )
+
     parser.add_argument(
         "--eot_token",
         type=str,
@@ -247,20 +242,13 @@ def main():
 
     args = parser.parse_args()
 
-    print("加载tokenizer...")
-    tokenizer = Tokenizer.from_file(
-        vocab_filepath=args.vocab,
-        merges_filepath=args.merges,
-        special_tokens=[args.eot_token],
-    )
-    print(f"✓ 词表大小: {len(tokenizer.vocab):,}")
 
     # 处理数据集
     prepare_dataset_with_hf(
         train_input=args.train_input,
         valid_input=args.valid_input,
         input_path=args.input,
-        tokenizer=tokenizer,
+        vocab_path=args.vocab,
         eot_token=args.eot_token,
         train_split=args.split,
         out_path=args.out_dir,
