@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 from tokenizer import Tokenizer
 from pathlib import Path
-
+import tqdm
 
 
 def _iter_texts(p: Path):
