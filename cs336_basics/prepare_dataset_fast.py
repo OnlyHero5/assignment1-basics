@@ -109,6 +109,8 @@ def prepare_dataset_with_hf(
         dtype_map = {
             "np.uint16": np.uint16,
             "np.int32": np.int32,
+            "uint16": np.uint16,
+            "int32": np.int32,
         }
         all_ids = np.array(flat[0]["ids"], dtype=dtype_map[dtype])
         return all_ids
