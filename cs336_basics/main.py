@@ -7,6 +7,6 @@
 from fast_bpe_train_hf import train_bpelevel_bpe
 
 train_bpelevel_bpe(input_path="../data/owt_train.txt",
-                   vocab_size=10000,
+                   vocab_size=32000,
                    special_tokens=["<|endoftext|>"],
                    output_path="../data/OWT")
