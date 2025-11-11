@@ -24,7 +24,7 @@ def _encode_corpus_to_1d_ids(corpus_path: str, tok: Tokenizer, eot: str) -> np.n
     for doc in _iter_texts(Path(corpus_path)):
         ids.extend(tok.encode(doc))
         ids.extend(tok.encode(eot))
-    return np.asarray(ids, dtype=np.int32)
+    return np.asarray(ids, dtype=np.uint16)
 
 def _save_npy(path: str, arr: np.ndarray) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -46,7 +46,7 @@ def main():
     ap.add_argument("--vocab", type=str, required=True, help="vocab path")
     ap.add_argument("--merges", type=str, required=True, help="merges path")
     ap.add_argument("--outdir", type=str, default="../data", help="output path")
-    ap.add_argument("--dtype", type=str, default="np.int32", choices=["np.int32", "np.int64"], help="dtype")
+    ap.add_argument("--dtype", type=str, default="np.uint16", choices=["np.int32", "np.uint16"], help="dtype")
     ap.add_argument("--eot", type=str, default="<|endoftext|>", help="end of text token")
     args = ap.parse_args()
 
