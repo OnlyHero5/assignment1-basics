@@ -12,7 +12,7 @@ class DataLoader:
         self.data_length = len(data)
 
     def get_train_batch_data(self):
-        idxs = np.rando.randint(0, self.data_length - self.context_length-1, size=(self.batch_size,))
+        idxs = np.random.randint(0, self.data_length - self.context_length-1, size=(self.batch_size,))
         x = np.stack([self.data[idx:idx+self.context_length] for idx in idxs])
         y = np.stack([self.data[idx+1:idx+self.context_length+1] for idx in idxs])
         return torch.tensor(x, dtype=torch.long), torch.tensor(y, dtype=torch.long)
