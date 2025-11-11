@@ -53,6 +53,12 @@ def main():
     # 加载tokenizer
     tok = Tokenizer.from_file(args.vocab, args.merges, special_tokens=[args.eot])
 
+    dtype_map = {
+        "np.int32": np.int32,
+        "np.uint16": np.uint16,
+    }
+    dtype = dtype_map[args.dtype]
+
     os.makedirs(args.outdir, exist_ok=True)
     train_out = os.path.join(args.outdir, "train.npy")
     valid_out = os.path.join(args.outdir, "valid.npy")
@@ -62,15 +68,15 @@ def main():
         print("✓ 模式 A：分别编码 train / val（不再二次划分）")
         train_ids = _encode_corpus_to_1d_ids(args.train_input, tok, args.eot)
         val_ids = _encode_corpus_to_1d_ids(args.valid_input, tok, args.eot)
-        train_ids = train_ids.astype(args.dtype)
-        val_ids = val_ids.astype(args.dtype)
+        train_ids = train_ids.astype(dtype)
+        val_ids = val_ids.astype(dtype)
         _save_npy(train_out, train_ids)
         _save_npy(valid_out, val_ids)
         print(f"      - train tokens: {len(train_ids):,} -> {train_out}")
         print(f"      - valid tokens: {len(val_ids):,} -> {valid_out}")
     elif args.input:
         print("✓ 模式 B：单一输入，按比例切分")
-        all_ids = _encode_corpus_to_1d_ids(args.input, tok, args.eot).astype(args.dtype)
+        all_ids = _encode_corpus_to_1d_ids(args.input, tok, args.eot).astype(dtype)
         n = len(all_ids)
         n_train = int(n * float(args.split))
         _save_npy(train_out, all_ids[:n_train])
