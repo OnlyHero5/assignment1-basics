@@ -193,7 +193,7 @@ class Tokenizer:
             if isinstance(x, list) and all(isinstance(item, int) for item in x):
                 return bytes(x)
             if isinstance(x, str):
-                return x.encode('latin-1', errors="strict")
+                return x.encode('utf-8', errors="strict")
             raise ValueError(f"无法将对象还原成 bytes : {type(x)}")
         
         def _load_vocab_(path: str) -> dict[int, bytes]:

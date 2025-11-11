@@ -5,15 +5,14 @@ import numpy as np
 from pathlib import Path
 from typing import Iterable, Dict, Any
 from datasets import Dataset, load_dataset
-from tokenizer import Tokenizer
-
+from tokenizers import Tokenizer as HFTokenizer
 
 
 def prepare_dataset_with_hf(
         train_input : str | Path = None,
         valid_input : str | Path = None,
         input_path: str | Path = None,
-        tokenizer: Tokenizer = None,
+        vocab_path: str | Path = None,
         eot_token: str = "<|endoftext|>",
         train_split: float = 0.9,
         out_path: str | Path = "../data",
@@ -58,15 +57,21 @@ def prepare_dataset_with_hf(
     #=============
     #2. tokenizer预处理
     #=============
-    eot_ids = tokenizer.encode(eot_token)
+    if vocab_path.endswith(".json") and "tokenizer" in str(vocab_path):
+        tokenizer = HFTokenizer.from_file(str(vocab_path))
+    else:
+        from tokenizers import models, Tokenizer as HFTok
+        tokenizer = HFTok(models.BPE.from_file(
+            vocab=str(vocab_path),
+            merges=str(vocab_path).replace("vocab.json", "merges.json")
+        ))
+
 
     def tokenize_function(examples: Dict[str, list])-> Dict[str, list]:
         all_ids = []
         for text in examples["text"]:
-            ids = tokenizer.encode(text)
-            ids.extend(eot_ids)
-            all_ids.append(ids)
-        
+            encoding = tokenizer.encode(text + eot_token)
+            all_ids.append(encoding)
         return {"input_ids": all_ids}
     
     #============
