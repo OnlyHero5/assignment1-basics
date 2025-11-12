@@ -78,10 +78,16 @@ def prepare_dataset_with_hf(
     #3. 展平数据集
     #============
     def flatten_function(examples: Dict[str, list]) -> Dict[str, list]:
-        flat_ids = []
-        for ids_list in examples["input_ids"]:
-            flat_ids.extend(ids_list)
-        return {"ids": [flat_ids]}
+        lengths = [len(x) for x in examples["input_ids"]]
+        total = sum(lengths)
+
+        buf = np.empty(total, dtype=np.int64)
+        pos = 0
+        for seq in examples["input_ids"]:
+            buf[pos:pos+len(seq)] = seq
+            pos += len(seq)
+        
+        return {"ids": [buf]}
 
     #=============
     #处理单个数据集
@@ -101,9 +107,10 @@ def prepare_dataset_with_hf(
         flat = tokenized.map(
             flatten_function,
             batched=True,
-            batch_size=len(tokenized),
+            batch_size=10000,
+            num_proc=num_proc,
             remove_columns=["input_ids"],
-            desc=f"Flattening {desc}",
+            desc=f"Flattening {desc} (chunked)",
         )
 
         dtype_map = {
@@ -112,7 +119,19 @@ def prepare_dataset_with_hf(
             "uint16": np.uint16,
             "int32": np.int32,
         }
-        all_ids = np.array(flat[0]["ids"], dtype=dtype_map[dtype])
+        target_dtype = dtype_map[dtype]
+
+        chunks = flat["ids"]
+        lengths = [(c.shape[0] if isinstance(c, np.ndarray) else len(c)) for c in chunks]
+        total_len = sum(lengths)
+        all_ids = np.empty(total_len, dtype=target_dtype)
+
+        offset = 0
+        for c in chunks:
+            arr = np.asarray(c, dtype=target_dtype)
+            n = arr.size
+            all_ids[offset: offset+n] = arr
+            offset += n
         return all_ids
 
     #=============
