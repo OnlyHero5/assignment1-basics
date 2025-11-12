@@ -7,6 +7,8 @@ from typing import Iterable, Dict, Any
 from datasets import Dataset, load_dataset
 from tokenizers import Tokenizer as HFTokenizer
 
+import pyarrow as pa
+import pyarrow.compute as pc
 
 def prepare_dataset_with_hf(
         train_input : str | Path = None,
@@ -86,7 +88,6 @@ def prepare_dataset_with_hf(
         for seq in examples["input_ids"]:
             buf[pos:pos+len(seq)] = seq
             pos += len(seq)
-        
         return {"ids": [buf]}
 
     #=============
@@ -121,17 +122,25 @@ def prepare_dataset_with_hf(
         }
         target_dtype = dtype_map[dtype]
 
-        chunks = flat["ids"]
-        lengths = [(c.shape[0] if isinstance(c, np.ndarray) else len(c)) for c in chunks]
-        total_len = sum(lengths)
-        all_ids = np.empty(total_len, dtype=target_dtype)
+        print(f"\n 拼接 {desc} tokens...")
 
-        offset = 0
-        for c in chunks:
-            arr = np.asarray(c, dtype=target_dtype)
-            n = arr.size
-            all_ids[offset: offset+n] = arr
-            offset += n
+        arrow_table = flat.data.table
+        ids_column = arrow_table.column("ids")
+
+        all_chunks = []
+        for chunk in ids_column.chunks:
+            flattened_chunk = chunk.flatten()
+            all_chunks.append(flattened_chunk)
+        
+        concatenated = pa.concat_arrays(all_chunks)
+
+        if target_dtype == np.uint16:
+            concatenated = pc.cast(concatenated, pa.uint16())
+        elif target_dtype == np.int32:
+            concatenated = pc.cast(concatenated, pa.int32())
+        
+        all_ids = concatenated.to_numpy()
+
         return all_ids
 
     #=============
