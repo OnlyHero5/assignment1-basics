@@ -103,7 +103,7 @@ def prepare_dataset_with_hf(
             num_proc=num_proc,
             remove_columns=dataset.column_names,
             desc=f"Tokenizing {desc}",
-            cache_file_name="./cache"
+            cache_file_name="./cache/tokenized_train.arrow"
         )
 
         print(f"\n Flattening ({desc})...")
