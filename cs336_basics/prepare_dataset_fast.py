@@ -54,6 +54,7 @@ def prepare_dataset_with_hf(
                 "text",
                 data_files=str(path),
                 split="train",
+                cache_dir="./cache",
             )
         return dataset
 
@@ -114,7 +115,7 @@ def prepare_dataset_with_hf(
             num_proc=num_proc,
             remove_columns=["input_ids"],
             desc=f"Flattening {desc} (chunked)",
-            cache_file_name="./cache"
+            cache_file_name="./cache/flat_train.arrow"
         )
 
         dtype_map = {
