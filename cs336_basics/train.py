@@ -249,7 +249,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--eval_only", action="store_true")
     parser.add_argument("--use_amp", action="store_true", default=True)
-    parser.add_argument("--compile", action="store_true", default=True)
+    parser.add_argument("--compile", action="store_true", default=False)
     parser.add_argument("--log_interval", type=int, default=50)
     return parser.parse_args()
 
