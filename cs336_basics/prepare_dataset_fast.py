@@ -53,6 +53,7 @@ def prepare_dataset_with_hf(
                 "text",
                 data_files=str(path),
                 split="train",
+                num_proc=num_proc,
             )
         return dataset
 
