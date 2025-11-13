@@ -57,9 +57,9 @@ DATA_DIR = REPO_ROOT / "data"
 PRESETS: Dict[str, DatasetPreset] = {
     "tinystories": DatasetPreset(
         name="tinystories",
-        train_file=DATA_DIR / "tinystories/train.npy",
-        valid_file=DATA_DIR / "tinystories/valid.npy",
-        tokenizer_dir=DATA_DIR / "tinystories",
+        train_file=DATA_DIR / "TinyStoriesV2/train.npy",
+        valid_file=DATA_DIR / "TinyStoriesV2/valid.npy",
+        tokenizer_dir=DATA_DIR / "TinyStoriesV2",
         context_length=256,
         batch_size=64,
         model=ModelConfig(d_model=384, num_layers=4, num_heads=6, d_ff=1536),
