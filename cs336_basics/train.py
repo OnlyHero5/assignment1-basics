@@ -165,9 +165,19 @@ def run_training(args: argparse.Namespace) -> None:
     device_type = device.type
     # TODO: 兼容性
     amp_enabled = args.use_amp and device_type == "cuda"
-    scaler = torch.cuda.amp.GradScaler(device_type=device_type, enabled=amp_enabled)
+    try:
+        scaler = torch.amp.GradScaler(device_type, enabled=amp_enabled)
+    except (AttributeError, TypeError):
+        # 方式 2: 兼容旧版本（PyTorch < 2.0）
+        if device_type == "cuda":
+            scaler = torch.cuda.amp.GradScaler(enabled=amp_enabled)
+        else:
+            scaler = torch.cuda.amp.GradScaler(enabled=False)
     def autocast_ctx():
-        return torch.amp.autocast(device_type=device_type, enabled=amp_enabled)
+        if device_type == "cuda":
+            return torch.cuda.amp.autocast(enabled=amp_enabled)
+        else:
+            return nullcontext()
     
     ckpt_dir = Path(args.output_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -233,8 +243,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=PRESETS.keys(), default="owt")
     parser.add_argument("--run_name", default="debug")
-    parser.add_argument("--ouput_dir", default=str(REPO_ROOT / "checkpoints"))
-    parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--output_dir", default=str(REPO_ROOT / "checkpoints"))
+    parser.add_argument("--device", default="cuda:5")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--eval_only", action="store_true")
