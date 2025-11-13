@@ -47,6 +47,7 @@ def prepare_dataset_with_hf(
                 "text",
                 data_files=str(path/"*.txt"),
                 split="train",
+                cache_dir=None,
             )
         else:
             dataset = load_dataset(
@@ -102,6 +103,7 @@ def prepare_dataset_with_hf(
             num_proc=num_proc,
             remove_columns=dataset.column_names,
             desc=f"Tokenizing {desc}",
+            cache_file_name=None
         )
 
         print(f"\n Flattening ({desc})...")
@@ -112,6 +114,7 @@ def prepare_dataset_with_hf(
             num_proc=num_proc,
             remove_columns=["input_ids"],
             desc=f"Flattening {desc} (chunked)",
+            cache_file_name=None
         )
 
         dtype_map = {
