@@ -161,11 +161,7 @@ def run_training(args: argparse.Namespace) -> None:
     valid_tokens = _load_tokenizer(preset.valid_file)
     vocab_size = _load_vocab_size(preset.tokenizer_dir)
 
-    device = torch.device(
-        args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu")
-    )
-    device_str = str(device)
-    
+   
     model = TransformerLM(
         vocab_size=vocab_size,
         context_length=preset.context_length,
