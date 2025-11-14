@@ -8,11 +8,14 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+import os
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.distributed as dist  # 分布式训练
+from torch.nn.parallel import DistributedDataParallel as DDP  # 分布式训练
 
 from cs336_basics.data import get_batch
 from cs336_basics.model import TransformerLM
@@ -133,7 +136,26 @@ def evaluate(
 #============训练主流程=================
 def run_training(args: argparse.Namespace) -> None:
     preset = PRESETS[args.dataset]
-    _set_seed(args.seed)
+
+    # -----------[DDP] 初始化分布式-----------
+    distributed = args.distributed
+    if distributed:
+        rank = int(os.environ["RANK"])  # 获取当前进程的 rank（进程编号）
+        world_size = int(os.environ["WORLD_SIZE"])  # 获取训练任务总进程数
+        local_rank = int(os.environ["LOCAL_RANK"])  # 获取当前节点的 rank（节点内进程编号）
+        dist.init_process_group(backend="nccl")
+        torch.cuda.set_device(local_rank)  # 设置当前进程使用的 GPU 设备
+        device = torch.device(f"cuda:{local_rank}")  # 使用当前节点的 GPU 设备
+        is_main = (rank == 0)
+    else:
+        rank, world_size, local_rank = 0, 1, 0  # 单节点训练
+        device = torch.device(
+            args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        is_main = True
+    
+    device_str = str(device)
+    _set_seed(args.seed + rank)
 
     train_tokens = _load_tokenizer(preset.train_file)
     valid_tokens = _load_tokenizer(preset.valid_file)
@@ -155,6 +177,9 @@ def run_training(args: argparse.Namespace) -> None:
 
     if args.compile:
         model = torch.compile(model)
+
+    if distributed:
+        model = DDP(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
     
     optimizer = AdamW(
         model.parameters(),
@@ -187,11 +212,16 @@ def run_training(args: argparse.Namespace) -> None:
     best_val = float("inf")
     if args.resume and Path(args.resume).exists():
         start_iter = load_checkpoint(args.resume, model, optimizer)
-        print(f"从{args.resume}恢复训练, 继续迭代 {start_iter}")
+        if is_main:
+            print(f"从{args.resume}恢复训练, 继续迭代 {start_iter}")
     
     if args.eval_only:
-        val_loss = evaluate(model, valid_tokens, device_str, preset)
-        print(f"[eval_only] val_loss={val_loss:.4f}, val_ppl={math.exp(val_loss):.2f}")
+        if is_main:
+            val_loss = evaluate(model, valid_tokens, device_str, preset)
+            print(f"[eval_only] val_loss={val_loss:.4f}, val_ppl={math.exp(val_loss):.2f}")
+        
+        if distributed:
+            dist.destroy_process_group()  # 销毁进程组
         return
     
     t0 = time.time()
@@ -224,21 +254,26 @@ def run_training(args: argparse.Namespace) -> None:
         scaler.step(optimizer)
         scaler.update()
 
-        if it % args.log_interval == 0:
+        if is_main and it % args.log_interval == 0:
             elapsed = time.time() - t0
-            print(f"iter {it:06d}/{preset.optim.max_iters} | lr={lr:.2e} | loss={loss.item()* preset.optim.grad_accum_steps:.4f} | {elapsed:.1f}")
+            print(f"iter {it:06d}/{preset.optim.max_iters} world_size={world_size} | lr={lr:.2e} | loss={loss.item()* preset.optim.grad_accum_steps:.4f} | {elapsed:.1f}s")
         
-        if it % preset.optim.eval_interval == 0 or it == preset.optim.max_iters - 1:
+        if is_main and it % preset.optim.eval_interval == 0 or it == preset.optim.max_iters - 1:
             train_loss = evaluate(model, train_tokens, device_str, preset)
             val_loss = evaluate(model, valid_tokens, device_str, preset)
             print(f"[eval] it={it} train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
             if val_loss < best_val:
                 best_val = val_loss
-                save_checkpoint(model, optimizer, it, ckpt_path)
+                to_save = model.module if distributed else model
+                save_checkpoint(to_save, optimizer, it, ckpt_path)
                 print(f"[save] 保存到{ckpt_path}")
     
-    print(f"训练完成, 最佳验证集损失={best_val:.4f}")
-
+    if is_main:
+        print(f"训练完成, 最佳验证集损失={best_val:.4f}")
+    
+    if distributed:
+        dist.destroy_process_group()  # 销毁进程组
+        
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=PRESETS.keys(), default="owt")
@@ -251,6 +286,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_amp", action="store_true", default=True)
     parser.add_argument("--compile", action="store_true", default=False)
     parser.add_argument("--log_interval", type=int, default=50)
+    parser.add_argument("--distributed", action="store_true", default=False)
     return parser.parse_args()
 
 if __name__ == "__main__":
