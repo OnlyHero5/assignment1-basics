@@ -279,7 +279,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", choices=PRESETS.keys(), default="owt")
     parser.add_argument("--run_name", default="debug")
     parser.add_argument("--output_dir", default=str(REPO_ROOT / "checkpoints"))
-    parser.add_argument("--device", default="cuda:5")
+    parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--eval_only", action="store_true")
