@@ -85,7 +85,7 @@ PRESETS: Dict[str, DatasetPreset] = {
         valid_file=DATA_DIR / "OWT/valid.npy",
         tokenizer_dir=DATA_DIR / "OWT",
         context_length=512,
-        batch_size=32,
+        batch_size=24,
         model=ModelConfig(d_model=768, num_layers=12, num_heads=12, d_ff=3072),
         optim=OptimConfig(
             max_iters=60_000,
@@ -95,7 +95,7 @@ PRESETS: Dict[str, DatasetPreset] = {
             min_lr=2e-5,
             warmup_iters=2000,
             cosine_iters=60_000,
-            grad_accum_steps=4,
+            grad_accum_steps=6,
             weight_decay=0.1,
             grad_clip=1.0,
         )
